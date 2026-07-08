@@ -1,9 +1,11 @@
-import os
+   import os
 import threading
 from flask import Flask
 import telebot
 from telebot import types
 import time
+import qrcode
+import io
 
 # ==========================================
 # ۱. تنظیم وب‌سرور Flask برای حل مشکل پورت رندر
@@ -36,11 +38,12 @@ stats = {
     "today_income": 0,
     "month_income": 0,
     "total_sales_count": 0
-} #
+}
 
 # ذخیره موقت وضعیت ادمین و فیش‌ها
-admin_state = {} #
-pending_receipts = {} #
+admin_state = {}
+pending_receipts = {}
+admin_data = {}  # برای ذخیره مراحل گام‌به‌گام صدور کانفیگ توسط ادمین
 
 # ----------------- جدول قیمت‌های نهایی و تایید شده -----------------
 PRICES = {
@@ -48,7 +51,7 @@ PRICES = {
     "2gb": {"name": "2 گیگابایت", "1month": 200000, "2month": 260000, "3month": 340000},
     "5gb": {"name": "5 گیگابایت", "1month": 300000, "2month": 360000, "3month": 440000},
     "10gb": {"name": "10 گیگابایت", "1month": 400000, "2month": 460000, "3month": 540000}
-} #
+}
 
 # ----------------- تابع بررسی عضویت اجباری کانال -----------------
 def check_membership(user_id):
@@ -59,7 +62,7 @@ def check_membership(user_id):
             return True
         return False
     except Exception:
-        return True #
+        return True
 
 # ----------------- دستور Start -----------------
 @bot.message_handler(commands=['start'])
@@ -74,7 +77,7 @@ def welcome(message):
         bot.send_message(user_id, f"سلام ابوالفضل عزیز! برای استفاده از ربات ابتدا باید در کانال عضو شوی 👇", reply_markup=markup)
         return
 
-    send_main_menu(user_id) #
+    send_main_menu(user_id)
 
 def send_main_menu(user_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -84,13 +87,13 @@ def send_main_menu(user_id):
     if user_id == ADMIN_ID:
         markup.add("⚙️ پنل مدیریت ادمین")
         
-    bot.send_message(user_id, "به ربات فروش کانفیگ خوش آمدید! یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=markup) #
+    bot.send_message(user_id, "به ربات فروش کانفیگ خوش آمدید! یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=markup)
 
 # ----------------- هینڈلر دکمه‌های پاسخ (Reply) -----------------
 @bot.message_handler(commands=['panel'])
 def admin_panel_command(message):
     if message.from_user.id == ADMIN_ID:
-        send_admin_panel(ADMIN_ID) #
+        send_admin_panel(ADMIN_ID)
 
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
@@ -114,7 +117,14 @@ def handle_text(message):
         if not test_status:
             bot.send_message(user_id, "❌ دریافت اکانت تست رایگان در حال حاضر غیرفعال است.")
             return
-        bot.send_message(user_id, "🔑 اکانت تست شما با موفقیت ساخته شد:\n`vless://test-config-100mb-link...`\n(حجم: 100 مگابایت)")
+        
+        bot.send_message(user_id, "⏳ درخواست شما برای اکانت تست به مدیریت ارسال شد. لطفاً منتظر تایید و ارسال کانفیگ بمانید.")
+        
+        # ارسال دکمه شیشه‌ای برای شما جهت مدیریت و ارسال دستی تست
+        admin_markup = types.InlineKeyboardMarkup()
+        btn_send_test = types.InlineKeyboardButton("📝 ارسال کانفیگ تست", callback_data=f"send_test_{user_id}")
+        admin_markup.add(btn_send_test)
+        bot.send_message(ADMIN_ID, f"👤 کاربر {user_id} درخواست اکانت تست داده است.", reply_markup=admin_markup)
 
     elif message.text == "📞 پشتیبانی ربات":
         bot.send_message(user_id, f"🎯 جهت ارتباط با پشتیبانی، ارسال سوالات یا مشکلات فنی به آیدی زیر پیام دهید:\n\n👤 @Abolfazl_Soltani")
@@ -149,7 +159,7 @@ def handle_text(message):
             buyer_id = pending_receipts[receipt_id]["user_id"]
             bot.send_message(buyer_id, f"❌ فیش ارسالی شما توسط مدیریت رد شد.\n⚠️ **علت رد فیش:** {message.text}\n\nاگر فکر می‌کنید اشتباهی رخ داده، لطفاً با آیدی پشتیبانی (@Abolfazl_Soltani) پیام دهید تا پیگیری شود.")
             bot.send_message(ADMIN_ID, "✅ علت رد فیش ثبت و پیام برای کاربر ارسال شد.")
-            del pending_receipts[receipt_id] #
+            del pending_receipts[receipt_id]
 
 # ----------------- پنل مدیریت ادمین -----------------
 def send_admin_panel(user_id):
@@ -168,7 +178,7 @@ def send_admin_panel(user_id):
                  f"🛒 وضعیت سیستم فروش: {'فعال ✅' if sales_status else 'غیرفعال ❌'}\n"
                  f"🎁 وضعیت سیستم اکانت تست: {'فعال ✅' if test_status else 'غیرفعال ❌'}")
     
-    bot.send_message(user_id, admin_msg, reply_markup=markup, parse_mode="Markdown") #
+    bot.send_message(user_id, admin_msg, reply_markup=markup, parse_mode="Markdown")
 
 # ----------------- هینڈلر کالبک‌ها (Inline Buttons) -----------------
 @bot.callback_query_handler(func=lambda call: True)
@@ -249,23 +259,82 @@ def handle_callbacks(call):
             rec_id = data.split("_")[1]
             if rec_id in pending_receipts:
                 info = pending_receipts[rec_id]
+                bot.edit_message_text(chat_id=ADMIN_ID, message_id=call.message.message_id, text=f"⏳ فیش تایید شد. در حال تنظیم و صدور دستی اطلاعات سفارش برای کاربر {info['user_id']}...")
+                
+                # ثبت آمار مالی
                 stats["today_income"] += info["price"]
                 stats["month_income"] += info["price"]
                 stats["total_sales_count"] += 1
                 
-                buyer_msg = (f"✅ فیش واریزی شما توسط مدیریت تایید شد!\n\n"
-                             f"📦 **مشخصات سفارش شما:**\n"
-                             f"نوع کانفیگ: {info['plan']} - {info['duration'].replace('month', ' ماهه')}\n\n"
-                             f"🔑 لینک کانفیگ اختصاصی شما صادر شد:\n`vless://your-purchased-config-link-here...`")
-                bot.send_message(info["user_id"], buyer_msg, parse_mode="Markdown")
-                bot.send_message(ADMIN_ID, "✅ فیش تایید شد و لینک کانفیگ برای خریدار ارسال گردید.")
+                # ورود به فرآیند صدور دستی لینک ساب و کانفیگ
+                admin_data[ADMIN_ID] = {'target_user': info['user_id'], 'type': 'premium', 'plan': info['plan'], 'duration': info['duration']}
+                msg = bot.send_message(ADMIN_ID, "🌐 **گام اول:** لطفاً **لینک ساب (Subscription Link)** خریدار را ارسال کنید:")
+                bot.register_next_step_handler(msg, get_sub_link)
                 del pending_receipts[rec_id]
                 
         elif data.startswith("reject_"):
             rec_id = data.split("_")[1]
             admin_state[ADMIN_ID] = "waiting_for_reject_reason"
             admin_state["target_receipt"] = rec_id
-            bot.send_message(ADMIN_ID, "❌ علت رد کردن این فیش را بنویسید تا برای کاربر ارسال شود:") #
+            bot.send_message(ADMIN_ID, "❌ علت رد کردن این فیش را بنویسید تا برای کاربر ارسال شود:")
+
+        elif data.startswith("send_test_"):
+            target_user_id = int(data.split("_")[2])
+            admin_data[ADMIN_ID] = {'target_user': target_user_id, 'type': 'test'}
+            msg = bot.send_message(ADMIN_ID, "🌐 **گام اول:** لطفاً **لینک ساب اکانت تست** را وارد کنید:")
+            bot.register_next_step_handler(msg, get_sub_link)
+
+# ----------------- فرآیند دریافت دستی اطلاعات توسط ادمین -----------------
+def get_sub_link(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    sub_link = message.text.strip()
+    admin_data[ADMIN_ID]['sub_link'] = sub_link
+    
+    msg = bot.send_message(ADMIN_ID, "✏️ **گام دوم:** حالا متن خود **کانفیگ VLESS** را ارسال کنید:")
+    bot.register_next_step_handler(msg, get_vless_config)
+
+def get_vless_config(message):
+    if message.from_user.id != ADMIN_ID:
+        return
+    
+    vless_config = message.text.strip()
+    target_user_id = admin_data[ADMIN_ID]['target_user']
+    sub_link = admin_data[ADMIN_ID]['sub_link']
+    order_type = admin_data[ADMIN_ID]['type']
+    
+    # ساخت خودکار QR Code از روی لینک ساب
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(sub_link)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    # تبدیل عکس به باینری جهت ارسال در تلگرام
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    if order_type == 'premium':
+        plan_name = admin_data[ADMIN_ID]['plan']
+        duration = admin_data[ADMIN_ID]['duration'].replace('month', ' ماهه')
+        header_text = f"✅ فیش واریزی شما توسط مدیریت تایید شد!\n\n📦 **مشخصات سفارش شما:**\nنوع کانفیگ: {plan_name} - {duration}\n\n"
+    else:
+        header_text = "🎁 **اکانت تست شما آماده شد!**\n\n"
+        
+    final_message = (
+        f"{header_text}"
+        f"🌐 **لینک ساب شما (Subscription):**\n`{sub_link}`\n\n"
+        f"🔑 **متن کانفیگ (VLESS):**\n`{vless_config}`\n\n"
+        f"ℹ️ برای استفاده، لینک ساب یا کانفیگ را کپی کرده و در نرم‌افزار خود وارد کنید. همچنین می‌توانید QR Code زیر را اسکن کنید."
+    )
+    
+    # ارسال کیوآر کد همراه با مشخصات و لینک به کاربر خریدار/تست کننده
+    bot.send_photo(target_user_id, img_byte_arr, caption=final_message, parse_mode='Markdown')
+    bot.send_message(ADMIN_ID, f"🚀 کلیه اطلاعات (لینک ساب + کانفیگ VLESS + کیوآر کد) با موفقیت دستی به کاربر {target_user_id} تحویل داده شد.")
+    
+    if ADMIN_ID in admin_data:
+        del admin_data[ADMIN_ID]
 
 # ----------------- تابع هوشمند دریافت فیش کاربر -----------------
 def receive_receipt(message, receipt_id):
@@ -291,19 +360,16 @@ def receive_receipt(message, receipt_id):
                    f"💰 مبلغ واریزی: {info['price']:,} تومان\n"
                    f"🆔 شناسه تراکنش: `{receipt_id}`")
     
-    bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_alert, reply_markup=markup, parse_mode="Markdown") #
+    bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_alert, reply_markup=markup, parse_mode="Markdown")
 
 # ==========================================
 # ۵. اجرای همزمان وب‌سرور و ربات تلگرام
 # ==========================================
 if __name__ == "__main__":
-    # ران کردن وب‌سرور در یک ترید (Thread) جداگانه برای دور زدن محدودیت پورت رندر
     web_thread = threading.Thread(target=run_web_server)
     web_thread.daemon = True
     web_thread.start()
     
     print("Flask web server started successfully. Starting bot polling...")
-    
-    # اجرای بات تلگرام به روش اینفینیتی پولینگ
     bot.infinity_polling()
         
