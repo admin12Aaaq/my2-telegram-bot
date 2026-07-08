@@ -3,7 +3,7 @@ from telebot import types
 import time
 
 # ----------------- تنظیمات اصلی و اختصاصی شما -----------------
-API_TOKEN = '6810237517:AAH0Z_Ssc8wGkS5u_q47N0G4gY5MOfh7oO8'  # توکن ربات شما
+API_TOKEN = '8744600190:AAHOSJlAPBfGbwSKI7yR-QSSUlrMcKKGIyI'  # توکن ربات شما
 ADMIN_ID = 6331901170  # آیدی عددی تلگرام شما (ابوالفضل)
 CHANNEL_USERNAME = '@K2_XAEA'  # آیدی کانال شما جهت قفل اجباری
 
