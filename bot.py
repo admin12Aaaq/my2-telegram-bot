@@ -1,6 +1,23 @@
+import os
+import threading
+from flask import Flask
 import telebot
 from telebot import types
 import time
+
+# ==========================================
+# ۱. تنظیم وب‌سرور Flask برای حل مشکل پورت رندر
+# ==========================================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running perfectly!"
+
+def run_web_server():
+    # رندر پورت را به صورت خودکار در متغیر PORT قرار می‌دهد
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
 
 # ----------------- تنظیمات اصلی و اختصاصی شما -----------------
 API_TOKEN = '8883573900:AAE_9bDgdD5506cHR5LurC3HM6LAn8Lh-BQ'  # توکن ربات شما
@@ -19,11 +36,11 @@ stats = {
     "today_income": 0,
     "month_income": 0,
     "total_sales_count": 0
-}
+} #
 
 # ذخیره موقت وضعیت ادمین و فیش‌ها
-admin_state = {}
-pending_receipts = {}
+admin_state = {} #
+pending_receipts = {} #
 
 # ----------------- جدول قیمت‌های نهایی و تایید شده -----------------
 PRICES = {
@@ -31,7 +48,7 @@ PRICES = {
     "2gb": {"name": "2 گیگابایت", "1month": 200000, "2month": 260000, "3month": 340000},
     "5gb": {"name": "5 گیگابایت", "1month": 300000, "2month": 360000, "3month": 440000},
     "10gb": {"name": "10 گیگابایت", "1month": 400000, "2month": 460000, "3month": 540000}
-}
+} #
 
 # ----------------- تابع بررسی عضویت اجباری کانال -----------------
 def check_membership(user_id):
@@ -42,7 +59,7 @@ def check_membership(user_id):
             return True
         return False
     except Exception:
-        return True
+        return True #
 
 # ----------------- دستور Start -----------------
 @bot.message_handler(commands=['start'])
@@ -57,7 +74,7 @@ def welcome(message):
         bot.send_message(user_id, f"سلام ابوالفضل عزیز! برای استفاده از ربات ابتدا باید در کانال عضو شوی 👇", reply_markup=markup)
         return
 
-    send_main_menu(user_id)
+    send_main_menu(user_id) #
 
 def send_main_menu(user_id):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -67,13 +84,13 @@ def send_main_menu(user_id):
     if user_id == ADMIN_ID:
         markup.add("⚙️ پنل مدیریت ادمین")
         
-    bot.send_message(user_id, "به ربات فروش کانفیگ خوش آمدید! یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=markup)
+    bot.send_message(user_id, "به ربات فروش کانفیگ خوش آمدید! یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=markup) #
 
 # ----------------- هینڈلر دکمه‌های پاسخ (Reply) -----------------
 @bot.message_handler(commands=['panel'])
 def admin_panel_command(message):
     if message.from_user.id == ADMIN_ID:
-        send_admin_panel(ADMIN_ID)
+        send_admin_panel(ADMIN_ID) #
 
 @bot.message_handler(func=lambda message: True)
 def handle_text(message):
@@ -132,7 +149,7 @@ def handle_text(message):
             buyer_id = pending_receipts[receipt_id]["user_id"]
             bot.send_message(buyer_id, f"❌ فیش ارسالی شما توسط مدیریت رد شد.\n⚠️ **علت رد فیش:** {message.text}\n\nاگر فکر می‌کنید اشتباهی رخ داده، لطفاً با آیدی پشتیبانی (@Abolfazl_Soltani) پیام دهید تا پیگیری شود.")
             bot.send_message(ADMIN_ID, "✅ علت رد فیش ثبت و پیام برای کاربر ارسال شد.")
-            del pending_receipts[receipt_id]
+            del pending_receipts[receipt_id] #
 
 # ----------------- پنل مدیریت ادمین -----------------
 def send_admin_panel(user_id):
@@ -151,7 +168,7 @@ def send_admin_panel(user_id):
                  f"🛒 وضعیت سیستم فروش: {'فعال ✅' if sales_status else 'غیرفعال ❌'}\n"
                  f"🎁 وضعیت سیستم اکانت تست: {'فعال ✅' if test_status else 'غیرفعال ❌'}")
     
-    bot.send_message(user_id, admin_msg, reply_markup=markup, parse_mode="Markdown")
+    bot.send_message(user_id, admin_msg, reply_markup=markup, parse_mode="Markdown") #
 
 # ----------------- هینڈلر کالبک‌ها (Inline Buttons) -----------------
 @bot.callback_query_handler(func=lambda call: True)
@@ -197,7 +214,7 @@ def handle_callbacks(call):
                    f"⏱️ مدت زمان: {duration.replace('month', ' ماهه')}\n"
                    f"💰 مبلغ قابل پرداخت: {price:,} تومان\n\n"
                    f"💳 **اطلاعات کارت جهت واریز:**\n"
-                   f"`6037-7012-1103-5784`\n"  # شماره کارت دقیق شما اضافه شد
+                   f"`6037-7012-1103-5784`\n"
                    f"👤 **به نام:** ابوالفضل سلطانی\n\n"
                    f"📸 لطفاً پس از واریز وجه، عکس فیش یا اسکرین‌شات پرداخت را مستقیماً در همین جا ارسال کنید.")
         
@@ -248,7 +265,7 @@ def handle_callbacks(call):
             rec_id = data.split("_")[1]
             admin_state[ADMIN_ID] = "waiting_for_reject_reason"
             admin_state["target_receipt"] = rec_id
-            bot.send_message(ADMIN_ID, "❌ علت رد کردن این فیش را بنویسید تا برای کاربر ارسال شود:")
+            bot.send_message(ADMIN_ID, "❌ علت رد کردن این فیش را بنویسید تا برای کاربر ارسال شود:") #
 
 # ----------------- تابع هوشمند دریافت فیش کاربر -----------------
 def receive_receipt(message, receipt_id):
@@ -274,7 +291,19 @@ def receive_receipt(message, receipt_id):
                    f"💰 مبلغ واریزی: {info['price']:,} تومان\n"
                    f"🆔 شناسه تراکنش: `{receipt_id}`")
     
-    bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_alert, reply_markup=markup, parse_mode="Markdown")
+    bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=admin_alert, reply_markup=markup, parse_mode="Markdown") #
 
-# ----------------- اجرای مداوم ربات در Termux -----------------
-bot.infinity_polling()
+# ==========================================
+# ۵. اجرای همزمان وب‌سرور و ربات تلگرام
+# ==========================================
+if __name__ == "__main__":
+    # ران کردن وب‌سرور در یک ترید (Thread) جداگانه برای دور زدن محدودیت پورت رندر
+    web_thread = threading.Thread(target=run_web_server)
+    web_thread.daemon = True
+    web_thread.start()
+    
+    print("Flask web server started successfully. Starting bot polling...")
+    
+    # اجرای بات تلگرام به روش اینفینیتی پولینگ
+    bot.infinity_polling()
+        
