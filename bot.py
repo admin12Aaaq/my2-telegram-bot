@@ -21,7 +21,7 @@ def run_web_server():
 
 # ----------------- تنظیمات اصلی و اختصاصی شما -----------------
 API_TOKEN = '8883573900:AAE_9bDgdD5506cHR5LurC3HM6LAn8Lh-BQ'  # توکن ربات شما
-ADMIN_ID = 6331901170  # آیدی عددی تلگرام شما (ابوالفضل)
+ADMIN_ID = 2010636810  # آیدی عددی تلگرام شما (ابوالفضل)
 CHANNEL_USERNAME = '@K2_XAEA'  # آیدی کانال شما جهت قفل اجباری
 
 bot = telebot.TeleBot(API_TOKEN)
